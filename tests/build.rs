@@ -1001,6 +1001,71 @@ fn many_crate_types_correct() {
 }
 
 #[test]
+fn deprecation_warning() {
+    let mut p = project("foo");
+    p = p
+        .file("Cargo.toml", r#"
+            [project]
+
+            name = "foo"
+            version = "0.5.0"
+            deprecation_message = "foo has been replaced by bar"
+
+            [lib]
+
+            name = "foo"
+        "#)
+        .file("src/foo.rs", r#"
+            pub fn foo() {}
+        "#);
+    assert_that(p.cargo_process("build"),
+                execs().with_status(0)
+                       .with_stderr("\
+warning: deprecation warning: foo has been replaced by bar
+[COMPILING] foo [..]
+[FINISHED] debug [unoptimized + debuginfo] target(s) in [..]
+"));
+}
+
+#[test]
+fn deprecation_warning_dependency() {
+    let mut p = project("foo");
+    p = p
+        .file("Cargo.toml", r#"
+            [package]
+
+            name = "test"
+            version = "0.0.0"
+            authors = []
+
+            [dependencies.foo]
+            path = "foo"
+        "#)
+        .file("src/lib.rs", "")
+        .file("foo/Cargo.toml", r#"
+            [package]
+
+            name = "foo"
+            version = "0.0.0"
+            authors = []
+            deprecation_message = "foo has been replaced by bar"
+
+            [lib]
+            name = "foo"
+            crate_type = ["dylib", "rlib"]
+        "#)
+        .file("foo/src/lib.rs", "");
+    assert_that(p.cargo_process("build"),
+                execs().with_status(0)
+                       .with_stderr("\
+[COMPILING] foo [..]
+warning: deprecation warning: foo has been replaced by bar
+[COMPILING] test [..]
+[FINISHED] debug [unoptimized + debuginfo] target(s) in [..]
+"));
+}
+
+#[test]
 fn unused_keys() {
     let mut p = project("foo");
     p = p
